@@ -2,22 +2,21 @@
 #include <ctype.h>
 #include <string.h>
 
-#define TRUE 1;
-#define FALSE 0;
+#define TRUE 1
+#define FALSE 0
 
-void trim_left(char *input) {
+void trim_left(char input) {
     char*a = input;
 
     while(*input != 0) {
         if(*input != ' ') {
-            if(a != input) *a = *input; 
+            if(a != input) *a = *input;
             a++;
         }
         input++;
     }
-    *a = NULL;
+    *a = '\0';
     }
-
 
 int check_parent(char* a) {
     int check_p=0;
@@ -52,7 +51,7 @@ int check_binary(char* a) {
                 if(count >= 2) {
                     printf("FALSE");
                     return 1;
-                }
+                }d
             i+=count;
             }
         if(i == strlen(a)) {
@@ -64,7 +63,7 @@ int check_binary(char* a) {
 
 
 int main(void) {
-    char* input[1000];
+    char input[1000];
     scanf("%s", &input);
 
     trim_left(*input);
