@@ -66,9 +66,12 @@ int main(void) {
     char input[1000];
     scanf("%s", &input);
 
-    trim_left(*input);
+    trim_left(input);
+    if(!check_parent(input)) {
+        printf("ERROR");
+    }
     check_parent(*input);
-    check_binary(*input);
+    check_binary(input);
 
     return 0;
 
