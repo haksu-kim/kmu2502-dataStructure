@@ -5,7 +5,7 @@
 #define TRUE 1
 #define FALSE 0
 
-void trim_left(char input) {
+void trim_left(char *input) {
     char*a = input;
 
     while(*input != 0) {
@@ -42,7 +42,6 @@ int check_parent(char* a) {
 
 int check_binary(char* a) {
     int count=0;
-    int first_count, second_count=0;
     for(int i=0; i<=strlen(a); i++) {
         if(*a == '(') {
             while(*a != '(' || *a != ')') {
@@ -50,27 +49,27 @@ int check_binary(char* a) {
                 }
                 if(count >= 2) {
                     printf("FALSE");
-                    return 1;
-                }d
+                    return FALSE;
+                }
             i+=count;
             }
         if(i == strlen(a)) {
             printf("TRUE");
+            return TRUE;
             }
         }
+    return TRUE;
     }
-
 
 
 int main(void) {
     char input[1000];
-    scanf("%s", &input);
+    scanf("%s", input);
 
     trim_left(input);
     if(!check_parent(input)) {
         printf("ERROR");
     }
-    check_parent(*input);
     check_binary(input);
 
     return 0;
