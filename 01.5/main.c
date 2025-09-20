@@ -6,60 +6,78 @@
 #define FALSE 0
 
 void trim_left(char *input) {
-    char*a = input;
-
-    while(*input != 0) {
-        if(*input != ' ') {
-            if(a != input) *a = *input;
-            a++;
+    char* writer = input;
+    char* reader = input;
+    
+    while(*reader != 0) {
+        if(*reader != ' ') {
+            *writer = *reader;
+            writer++;
         }
-        input++;
+        reader++;
     }
-    *a = '\0';
+    *writer = '\0';
     }
 
-int check_parent(char* a) {
+int check_parent(char* str) {
     int check_p=0;
-    while(*a != 0) {
-        if(*a != '(' || *a != ')') {
-            printf("ERROR!");
-            return FALSE;
-        }
-        if(*a == '(') {
+    
+    for(int i=0; str[i] != '\0'; i++) {
+        if(str[i] == '(') {
             check_p++;
-        }
-        if(*a == ')') {
+        } else if(str[i] == ')') {
             check_p--;
         }
-        a++;
+        if(check_p < 0) {
+            return FALSE;
+        }
     }
-    if(check_p == 0) {
-        return 0; // TRUE
-    } else {
-        return 1; // FALSE
-    }
+    return (check_p == 0) ? TRUE : FALSE;
 }
 
-int check_binary(char* a) {
-    int count=0;
-    for(int i=0; i<=strlen(a); i++) {
-        if(*a == '(') {
-            while(*a != '(' || *a != ')') {
-                    count++;
-                }
-                if(count >= 2) {
-                    printf("FALSE");
-                    return FALSE;
-                }
-            i+=count;
+int check_binary(char* str) {
+    for(int i=0; str[i] != '0'; i++) {
+        if(str[i] == '(') {
+            int child_count = 0;
+            int balance = 1;
+            int j = i + 1;
+            
+            if(isalpha(str[j])) {
+                j++;
             }
-        if(i == strlen(a)) {
-            printf("TRUE");
-            return TRUE;
+            
+            while(str[j] != '\0' && balance > 0) {
+                if(isalpha(str[j])) {
+                    child_count++;
+                    while(isalpha(str[j])) j++;
+                }
+                else if(str[j] == '(') { //자식노드
+                    child_count++;
+                    int sub_balance = 1;
+                    j++;
+                    
+                    while(sub_balance > 0 && str[j] != '\0') {
+                        if(str[j] == '(') sub_balance++;
+                        if(str[j] == ')') sub_balance--;
+                        j++;
+                    }
+                }
+                else if(str[j] == ')') {
+                    balance--;
+                    j++;
+                }
+                else {
+                    j++;
+                }
+            }
+            
+            if(child_count > 2) {
+                return FALSE;
             }
         }
-    return TRUE;
     }
+    return TRUE;
+}
 
 
 int main(void) {
@@ -67,8 +85,12 @@ int main(void) {
     scanf("%s", input);
 
     trim_left(input);
-    check_parent(input);
-    check_binary(input);
+    
+    if(check_parent(input) && check_binary(input)) {
+        printf("TRUE");
+    } else {
+        printf("FALSE");
+    }
 
     return 0;
 
