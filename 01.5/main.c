@@ -4,12 +4,21 @@
 
 #define TRUE 1
 #define FALSE 0
+#define MAX 100
 
-void trim_left(char *input) {
-    char* writer = input;
-    char* reader = input;
+typedef struct {
+    int childCount;
+} Stack;
+/*
+void trim_spaces(char *input) {
     
-    while(*reader != 0) {
+    char* writer = input;
+    char *reader = input;
+    
+    if (reader[0] == '(') {
+        reader++;
+    }
+    while(*reader) {
         if(*reader != ' ') {
             *writer = *reader;
             writer++;
@@ -17,81 +26,59 @@ void trim_left(char *input) {
         reader++;
     }
     *writer = '\0';
-    }
+}
+*/
 
-int check_parent(char* str) {
-    int check_p=0;
+void trim_spaces(char* input) {
+    char* writer = input;
+    char* reader = input;
     
-    for(int i=0; str[i] != '\0'; i++) {
-        if(str[i] == '(') {
-            check_p++;
-        } else if(str[i] == ')') {
-            check_p--;
+    while(*reader) {
+        if(*reader != ' ') {
+            *writer = *reader;
+            writer++;
         }
-        if(check_p < 0) {
-            return FALSE;
-        }
+        reader++;
     }
-    return (check_p == 0) ? TRUE : FALSE;
+    *writer = '\0';
 }
 
-int check_binary(char* str) {
-    for(int i=0; str[i] != '0'; i++) {
-        if(str[i] == '(') {
-            int child_count = 0;
-            int balance = 1;
-            int j = i + 1;
-            
-            if(isalpha(str[j])) {
-                j++;
-            }
-            
-            while(str[j] != '\0' && balance > 0) {
-                if(isalpha(str[j])) {
-                    child_count++;
-                    while(isalpha(str[j])) j++;
-                }
-                else if(str[j] == '(') { //자식노드
-                    child_count++;
-                    int sub_balance = 1;
-                    j++;
-                    
-                    while(sub_balance > 0 && str[j] != '\0') {
-                        if(str[j] == '(') sub_balance++;
-                        if(str[j] == ')') sub_balance--;
-                        j++;
-                    }
-                }
-                else if(str[j] == ')') {
-                    balance--;
-                    j++;
-                }
-                else {
-                    j++;
-                }
-            }
-            
-            if(child_count > 2) {
-                return FALSE;
+int check_Tree(const char *str) {
+    Stack stack[MAX];
+    int top = -1;
+
+    for (int i = 0; str[i] != '\0'; i++) {
+        char c = str[i];
+
+        if (isalpha(c)) {
+
+            if (top >= 0) {
+                stack[top].childCount++;
+                if (stack[top].childCount > 2) return FALSE;
             }
         }
+        else if (c == '(') {
+            stack[++top].childCount = 0;
+        }
+        else if (c == ')') {
+            if (top < 0) return FALSE;
+            top--;
+        }
     }
-    return TRUE;
+    return (top == -1) ? TRUE : FALSE;
 }
-
 
 int main(void) {
-    char input[1000];
-    scanf("%s", input);
+    char input[MAX];
 
-    trim_left(input);
+    scanf("%[^\n]s", input);
+    trim_spaces(input);
     
-    if(check_parent(input) && check_binary(input)) {
-        printf("TRUE");
-    } else {
-        printf("FALSE");
-    }
+
+    if (check_Tree(input))
+        printf("TRUE\n");
+    else
+        printf("FALSE\n");
 
     return 0;
-
 }
