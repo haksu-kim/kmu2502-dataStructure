@@ -530,7 +530,7 @@ int main() {
 
     int has_dup = check_duplicates();
 
-    const int ITER = 100;
+    const int ITER = 10;
 
     printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
     printf("⚙️  설정\n");
