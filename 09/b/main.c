@@ -7,7 +7,7 @@
 
 #define MAX_NAME 100
 #define MAX_LINE 1024
-#define ITERATIONS 100
+#define ITERATIONS 1000
 
 typedef struct {
     int id;
