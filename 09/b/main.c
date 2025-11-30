@@ -60,27 +60,20 @@ int cmp_grade_desc(const void* a, const void* b) {
 }
 
 // ============================================
-// 🔥 1. Shell Sort - 진짜 Tokuda Sequence
+// 1. Shell Sort - Ciura Sequence
 // ============================================
 void shell_sort(Student* arr, int n, int (*cmp)(const void*, const void*)) {
-    // Tokuda 정확한 공식: h(k) = ceil((9^k - 4^k)/(5*4^(k-1)))
-    int gaps[30];
-    int gap_count = 0;
+    int gaps[] = {701, 301, 132, 57, 23, 10, 4, 1};
+    int gap_count = 8;
 
-    for (int k = 1; ; k++) {
-        double numerator = pow(9, k) - pow(4, k);
-        double denominator = 5 * pow(4, k - 1);
-        long long gap = (long long)ceil(numerator / denominator);
-
-        if (gap >= n) break;
-        gaps[gap_count++] = gap;
+    int start_idx = 0;
+    while (start_idx < gap_count && gaps[start_idx] >= n) {
+        start_idx++;
     }
 
-    // 큰 간격부터 적용 (역순)
-    for (int g = gap_count - 1; g >= 0; g--) {
+    for (int g = start_idx; g < gap_count; g++) {
         int gap = gaps[g];
 
-        // 삽입 정렬
         for (int i = gap; i < n; i++) {
             Student temp = arr[i];
             int j = i;
@@ -95,7 +88,7 @@ void shell_sort(Student* arr, int n, int (*cmp)(const void*, const void*)) {
 }
 
 // ============================================
-// 🔥 2. Dual-Pivot Quick Sort (Java 8 스타일)
+// 2. Dual-Pivot Quick Sort
 // ============================================
 void swap(Student* arr, int i, int j) {
     Student temp = arr[i];
@@ -116,17 +109,16 @@ void insertion_sort(Student* arr, int lo, int hi, int (*cmp)(const void*, const 
     }
 }
 
-void dual_pivot_quick_sort_helper(Student* arr, int lo, int hi,
-                                   int (*cmp)(const void*, const void*), int depth) {
-    int len = hi - lo + 1;
+void single_pivot_partition(Student* arr, int lo, int hi,
+                            int (*cmp)(const void*, const void*), int depth) {
+    if (hi <= lo) return;
 
-    // 작은 배열: 삽입 정렬
+    int len = hi - lo + 1;
     if (len < 27) {
         insertion_sort(arr, lo, hi, cmp);
         return;
     }
 
-    // 깊이 제한: 힙 정렬로 전환
     if (depth == 0) {
         for (int i = lo + (hi - lo) / 2; i >= lo; i--) {
             int parent = i;
@@ -163,7 +155,74 @@ void dual_pivot_quick_sort_helper(Student* arr, int lo, int hi,
         return;
     }
 
-    // Median-of-3으로 두 피벗 선택
+    int mid = lo + (hi - lo) / 2;
+    if (cmp(&arr[mid], &arr[lo]) < 0) swap(arr, mid, lo);
+    if (cmp(&arr[hi], &arr[mid]) < 0) swap(arr, hi, mid);
+    if (cmp(&arr[mid], &arr[lo]) < 0) swap(arr, mid, lo);
+
+    Student pivot = arr[mid];
+    swap(arr, mid, hi);
+
+    int i = lo - 1;
+    int j = hi;
+
+    while (true) {
+        while (cmp(&arr[++i], &pivot) < 0);
+        while (j > lo && cmp(&arr[--j], &pivot) > 0);
+        if (i >= j) break;
+        swap(arr, i, j);
+    }
+    swap(arr, i, hi);
+
+    single_pivot_partition(arr, lo, i - 1, cmp, depth - 1);
+    single_pivot_partition(arr, i + 1, hi, cmp, depth - 1);
+}
+
+void dual_pivot_quick_sort_helper(Student* arr, int lo, int hi,
+                                   int (*cmp)(const void*, const void*), int depth) {
+    int len = hi - lo + 1;
+
+    if (len < 27) {
+        insertion_sort(arr, lo, hi, cmp);
+        return;
+    }
+
+    if (depth == 0) {
+        for (int i = lo + (hi - lo) / 2; i >= lo; i--) {
+            int parent = i;
+            while (true) {
+                int largest = parent;
+                int left = lo + 2 * (parent - lo) + 1;
+                int right = lo + 2 * (parent - lo) + 2;
+
+                if (left <= hi && cmp(&arr[left], &arr[largest]) > 0) largest = left;
+                if (right <= hi && cmp(&arr[right], &arr[largest]) > 0) largest = right;
+
+                if (largest == parent) break;
+                swap(arr, parent, largest);
+                parent = largest;
+            }
+        }
+
+        for (int i = hi; i > lo; i--) {
+            swap(arr, lo, i);
+            int parent = lo;
+            while (true) {
+                int largest = parent;
+                int left = lo + 2 * (parent - lo) + 1;
+                int right = lo + 2 * (parent - lo) + 2;
+
+                if (left < i && cmp(&arr[left], &arr[largest]) > 0) largest = left;
+                if (right < i && cmp(&arr[right], &arr[largest]) > 0) largest = right;
+
+                if (largest == parent) break;
+                swap(arr, parent, largest);
+                parent = largest;
+            }
+        }
+        return;
+    }
+
     int third = len / 3;
     int m1 = lo + third;
     int m2 = hi - third;
@@ -171,7 +230,6 @@ void dual_pivot_quick_sort_helper(Student* arr, int lo, int hi,
     if (m1 <= lo) m1 = lo + 1;
     if (m2 >= hi) m2 = hi - 1;
 
-    // 피벗 정렬
     if (cmp(&arr[m1], &arr[lo]) < 0) swap(arr, m1, lo);
     if (cmp(&arr[hi], &arr[m2]) < 0) swap(arr, hi, m2);
     if (cmp(&arr[m2], &arr[m1]) < 0) swap(arr, m2, m1);
@@ -181,10 +239,16 @@ void dual_pivot_quick_sort_helper(Student* arr, int lo, int hi,
     Student pivot1 = arr[m1];
     Student pivot2 = arr[m2];
 
+    int pivot_cmp = cmp(&pivot1, &pivot2);
+    if (pivot_cmp == 0) {
+        comp_count--;
+        single_pivot_partition(arr, lo, hi, cmp, depth);
+        return;
+    }
+
     swap(arr, m1, lo + 1);
     swap(arr, m2, hi - 1);
 
-    // Dual-Pivot 분할
     int less = lo + 2;
     int great = hi - 2;
 
@@ -211,11 +275,9 @@ void dual_pivot_quick_sort_helper(Student* arr, int lo, int hi,
         }
     }
 
-    // 피벗 최종 위치
     swap(arr, lo + 1, less - 1);
     swap(arr, hi - 1, great + 1);
 
-    // 재귀 호출
     dual_pivot_quick_sort_helper(arr, lo, less - 2, cmp, depth - 1);
     dual_pivot_quick_sort_helper(arr, less, great, cmp, depth - 1);
     dual_pivot_quick_sort_helper(arr, great + 2, hi, cmp, depth - 1);
@@ -228,7 +290,7 @@ void dual_pivot_quick_sort(Student* arr, int n, int (*cmp)(const void*, const vo
 }
 
 // ============================================
-// 🔥 3. Red-Black Tree
+// 3. Red-Black Tree
 // ============================================
 typedef enum { RED, BLACK } Color;
 
@@ -329,6 +391,7 @@ void rb_insert(RBNode** root, Student data, int (*cmp)(const void*, const void*)
         else if (c > 0) x = x->right;
         else {
             free(z);
+            comp_count--;
             return;
         }
     }
@@ -336,8 +399,11 @@ void rb_insert(RBNode** root, Student data, int (*cmp)(const void*, const void*)
     z->parent = y;
 
     if (!y) *root = z;
-    else if (cmp(&data, &y->data) < 0) y->left = z;
-    else y->right = z;
+    else {
+        int c = cmp(&data, &y->data);
+        if (c < 0) y->left = z;
+        else y->right = z;
+    }
 
     rb_fix_insert(root, z);
 }
@@ -371,7 +437,7 @@ void rb_tree_sort(Student* arr, int n, int (*cmp)(const void*, const void*)) {
 }
 
 // ============================================
-// 🔥 4. AVL Tree
+// 4. AVL Tree
 // ============================================
 typedef struct AVLNode {
     Student data;
@@ -426,29 +492,26 @@ AVLNode* avl_insert(AVLNode* node, Student data, int (*cmp)(const void*, const v
     } else if (c > 0) {
         node->right = avl_insert(node->right, data, cmp);
     } else {
+        comp_count--;
         return node;
     }
 
     avl_update(node);
     int bal = avl_balance(node);
 
-    // Left-Left
     if (bal > 1 && cmp(&data, &node->left->data) < 0) {
         return avl_rotate_right(node);
     }
 
-    // Right-Right
     if (bal < -1 && cmp(&data, &node->right->data) > 0) {
         return avl_rotate_left(node);
     }
 
-    // Left-Right
     if (bal > 1 && cmp(&data, &node->left->data) > 0) {
         node->left = avl_rotate_left(node->left);
         return avl_rotate_right(node);
     }
 
-    // Right-Left
     if (bal < -1 && cmp(&data, &node->right->data) < 0) {
         node->right = avl_rotate_right(node->right);
         return avl_rotate_left(node);
@@ -486,9 +549,10 @@ void avl_tree_sort(Student* arr, int n, int (*cmp)(const void*, const void*)) {
 }
 
 // ============================================
-// 🔥 5. Timsort (최강 실전 정렬)
+// 5. Timsort
 // ============================================
 #define MIN_MERGE 32
+#define MIN_GALLOP 7
 
 int min_run_length(int n) {
     int r = 0;
@@ -499,19 +563,31 @@ int min_run_length(int n) {
     return n + r;
 }
 
-void tim_insertion_sort(Student* arr, int left, int right, int (*cmp)(const void*, const void*)) {
+void tim_binary_insertion_sort(Student* arr, int left, int right,
+                               int (*cmp)(const void*, const void*)) {
     for (int i = left + 1; i <= right; i++) {
         Student key = arr[i];
-        int j = i - 1;
-        while (j >= left && cmp(&arr[j], &key) > 0) {
-            arr[j + 1] = arr[j];
-            j--;
+
+        int l = left, r = i - 1;
+        while (l <= r) {
+            int mid = l + (r - l) / 2;
+            if (cmp(&arr[mid], &key) > 0) {
+                r = mid - 1;
+            } else {
+                l = mid + 1;
+            }
         }
-        arr[j + 1] = key;
+
+        int pos = l;
+        for (int j = i; j > pos; j--) {
+            arr[j] = arr[j - 1];
+        }
+        arr[pos] = key;
     }
 }
 
-void tim_merge(Student* arr, int l, int m, int r, int (*cmp)(const void*, const void*)) {
+void tim_merge(Student* arr, int l, int m, int r,
+               int (*cmp)(const void*, const void*)) {
     int len1 = m - l + 1, len2 = r - m;
     Student* left = malloc(len1 * sizeof(Student));
     Student* right = malloc(len2 * sizeof(Student));
@@ -520,12 +596,35 @@ void tim_merge(Student* arr, int l, int m, int r, int (*cmp)(const void*, const 
     memcpy(right, arr + m + 1, len2 * sizeof(Student));
 
     int i = 0, j = 0, k = l;
+    int min_gallop = MIN_GALLOP;
+    int left_wins = 0;
+    int right_wins = 0;
 
     while (i < len1 && j < len2) {
         if (cmp(&left[i], &right[j]) <= 0) {
             arr[k++] = left[i++];
+            left_wins++;
+            right_wins = 0;
+
+            if (left_wins >= min_gallop) {
+                while (i < len1 && j < len2 && cmp(&left[i], &right[j]) <= 0) {
+                    arr[k++] = left[i++];
+                }
+                min_gallop++;
+                left_wins = 0;
+            }
         } else {
             arr[k++] = right[j++];
+            right_wins++;
+            left_wins = 0;
+
+            if (right_wins >= min_gallop) {
+                while (i < len1 && j < len2 && cmp(&right[j], &left[i]) < 0) {
+                    arr[k++] = right[j++];
+                }
+                min_gallop++;
+                right_wins = 0;
+            }
         }
     }
 
@@ -537,12 +636,14 @@ void tim_merge(Student* arr, int l, int m, int r, int (*cmp)(const void*, const 
 }
 
 void timsort(Student* arr, int n, int (*cmp)(const void*, const void*)) {
+    if (n < 2) return;
+
     int min_run = min_run_length(n);
 
     for (int start = 0; start < n; start += min_run) {
         int end = start + min_run - 1;
         if (end >= n) end = n - 1;
-        tim_insertion_sort(arr, start, end, cmp);
+        tim_binary_insertion_sort(arr, start, end, cmp);
     }
 
     for (int size = min_run; size < n; size = 2 * size) {
@@ -550,7 +651,7 @@ void timsort(Student* arr, int n, int (*cmp)(const void*, const void*)) {
             int mid = start + size - 1;
             int end = start + 2 * size - 1;
 
-            if (mid >= n) mid = n - 1;
+            if (mid >= n) continue;
             if (end >= n) end = n - 1;
 
             if (mid < end) {
@@ -561,12 +662,12 @@ void timsort(Student* arr, int n, int (*cmp)(const void*, const void*)) {
 }
 
 // ============================================
-// CSV 읽기
+// CSV
 // ============================================
 int read_csv(const char* file, Student** students) {
     FILE* fp = fopen(file, "r");
     if (!fp) {
-        printf("❌ 파일을 열 수 없습니다: %s\n", file);
+        printf("Error: Cannot open file: %s\n", file);
         return 0;
     }
 
@@ -601,7 +702,7 @@ int read_csv(const char* file, Student** students) {
 }
 
 // ============================================
-// 정렬 실행
+// Run Sort
 // ============================================
 void run_sort(const char* name, Student* orig, int n,
               void (*sort)(Student*, int, int (*)(const void*, const void*)),
@@ -623,7 +724,7 @@ void run_sort(const char* name, Student* orig, int n,
 
         free(arr);
 
-        if ((iter + 1) % 250 == 0) {
+        if ((iter + 1) % 25 == 0) {
             printf(".");
             fflush(stdout);
         }
@@ -632,76 +733,72 @@ void run_sort(const char* name, Student* orig, int n,
     avg_comp /= ITERATIONS;
     double elapsed = (double)(clock() - start) / CLOCKS_PER_SEC;
 
-    printf(" %6.2fs | %15.0f 비교\n", elapsed, avg_comp);
+    printf(" %6.2fs | %15.0f comparisons\n", elapsed, avg_comp);
 }
 
 // ============================================
-// 메인
+// Main
 // ============================================
 int main() {
     Student* students = NULL;
 
     int n = read_csv("dataset_id_ascending.csv", &students);
     if (n == 0) {
-        printf("❌ CSV 파일을 생성하거나 확인해주세요!\n\n");
+        printf("Error: Please check CSV file!\n\n");
         return 1;
     }
 
+    printf("Data size: %d\n", n);
+    printf("Iterations: %d\n", ITERATIONS);
     printf("================================================================\n");
 
-    // ID 오름차순
-    printf("\n[ ID 오름차순 ]\n");
+    printf("\n[ ID Ascending ]\n");
     printf("----------------------------------------------------------------\n");
-    run_sort("1. Shell Sort (Tokuda)", students, n, shell_sort, cmp_id_asc);
+    run_sort("1. Shell Sort (Ciura)", students, n, shell_sort, cmp_id_asc);
     run_sort("2. Dual-Pivot Quick Sort", students, n, dual_pivot_quick_sort, cmp_id_asc);
     run_sort("3. Red-Black Tree Sort", students, n, rb_tree_sort, cmp_id_asc);
-    run_sort("3. AVL Tree Sort", students, n, avl_tree_sort, cmp_id_asc);
-    run_sort("3. Timsort", students, n, timsort, cmp_id_asc);
+    run_sort("4. AVL Tree Sort", students, n, avl_tree_sort, cmp_id_asc);
+    run_sort("5. Timsort", students, n, timsort, cmp_id_asc);
 
-    // ID 내림차순
-    printf("\n[ ID 내림차순 ]\n");
+    printf("\n[ ID Descending ]\n");
     printf("----------------------------------------------------------------\n");
-    run_sort("1. Shell Sort (Tokuda)", students, n, shell_sort, cmp_id_desc);
+    run_sort("1. Shell Sort (Ciura)", students, n, shell_sort, cmp_id_desc);
     run_sort("2. Dual-Pivot Quick Sort", students, n, dual_pivot_quick_sort, cmp_id_desc);
     run_sort("3. Red-Black Tree Sort", students, n, rb_tree_sort, cmp_id_desc);
-    run_sort("3. AVL Tree Sort", students, n, avl_tree_sort, cmp_id_desc);
-    run_sort("3. Timsort", students, n, timsort, cmp_id_desc);
+    run_sort("4. AVL Tree Sort", students, n, avl_tree_sort, cmp_id_desc);
+    run_sort("5. Timsort", students, n, timsort, cmp_id_desc);
 
-    // NAME 오름차순
-    printf("\n[ NAME 오름차순 ]\n");
+    printf("\n[ Name Ascending ]\n");
     printf("----------------------------------------------------------------\n");
-    run_sort("1. Shell Sort (Tokuda)", students, n, shell_sort, cmp_name_asc);
+    run_sort("1. Shell Sort (Ciura)", students, n, shell_sort, cmp_name_asc);
     run_sort("2. Dual-Pivot Quick Sort", students, n, dual_pivot_quick_sort, cmp_name_asc);
     run_sort("3. Red-Black Tree Sort", students, n, rb_tree_sort, cmp_name_asc);
-    run_sort("3. AVL Tree Sort", students, n, avl_tree_sort, cmp_name_asc);
-    run_sort("3. Timsort", students, n, timsort, cmp_name_asc);
+    run_sort("4. AVL Tree Sort", students, n, avl_tree_sort, cmp_name_asc);
+    run_sort("5. Timsort", students, n, timsort, cmp_name_asc);
 
-    // NAME 내림차순
-    printf("\n[ NAME 내림차순 ]\n");
+    printf("\n[ Name Descending ]\n");
     printf("----------------------------------------------------------------\n");
-    run_sort("1. Shell Sort (Tokuda)", students, n, shell_sort, cmp_name_desc);
+    run_sort("1. Shell Sort (Ciura)", students, n, shell_sort, cmp_name_desc);
     run_sort("2. Dual-Pivot Quick Sort", students, n, dual_pivot_quick_sort, cmp_name_desc);
     run_sort("3. Red-Black Tree Sort", students, n, rb_tree_sort, cmp_name_desc);
-    run_sort("3. AVL Tree Sort", students, n, avl_tree_sort, cmp_name_desc);
-    run_sort("3. Timsort", students, n, timsort, cmp_name_desc);
+    run_sort("4. AVL Tree Sort", students, n, avl_tree_sort, cmp_name_desc);
+    run_sort("5. Timsort", students, n, timsort, cmp_name_desc);
 
-    // GRADE 오름차순
-    printf("\n[ GRADE 합 오름차순 ]\n");
+    printf("\n[ Grade Total Ascending ]\n");
     printf("----------------------------------------------------------------\n");
-    run_sort("1. Shell Sort (Tokuda)", students, n, shell_sort, cmp_grade_asc);
+    run_sort("1. Shell Sort (Ciura)", students, n, shell_sort, cmp_grade_asc);
     run_sort("2. Dual-Pivot Quick Sort", students, n, dual_pivot_quick_sort, cmp_grade_asc);
     run_sort("3. Red-Black Tree Sort", students, n, rb_tree_sort, cmp_grade_asc);
-    run_sort("3. AVL Tree Sort", students, n, avl_tree_sort, cmp_grade_asc);
-    run_sort("3. Timsort", students, n, timsort, cmp_grade_asc);
+    run_sort("4. AVL Tree Sort", students, n, avl_tree_sort, cmp_grade_asc);
+    run_sort("5. Timsort", students, n, timsort, cmp_grade_asc);
 
-    // GRADE 내림차순
-    printf("\n[ GRADE 합 내림차순 ]\n");
+    printf("\n[ Grade Total Descending ]\n");
     printf("----------------------------------------------------------------\n");
-    run_sort("1. Shell Sort (Tokuda)", students, n, shell_sort, cmp_grade_desc);
+    run_sort("1. Shell Sort (Ciura)", students, n, shell_sort, cmp_grade_desc);
     run_sort("2. Dual-Pivot Quick Sort", students, n, dual_pivot_quick_sort, cmp_grade_desc);
     run_sort("3. Red-Black Tree Sort", students, n, rb_tree_sort, cmp_grade_desc);
-    run_sort("3. AVL Tree Sort", students, n, avl_tree_sort, cmp_grade_desc);
-    run_sort("3. Timsort", students, n, timsort, cmp_grade_desc);
+    run_sort("4. AVL Tree Sort", students, n, avl_tree_sort, cmp_grade_desc);
+    run_sort("5. Timsort", students, n, timsort, cmp_grade_desc);
 
     printf("\n================================================================\n");
 

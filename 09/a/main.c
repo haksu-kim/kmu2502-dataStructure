@@ -24,44 +24,6 @@ Student *original_data = NULL;
 int data_count = 0;
 long long compare_count = 0;
 
-// 상세 진행도 표시 (시간 예측 포함)
-void print_detailed_progress(int current, int total, const char *sort_name,
-                             const char *criteria_name, double elapsed_sec) {
-    int bar_width = 35;
-    float progress = (float)current / total;
-    int pos = bar_width * progress;
-
-    // 예상 남은 시간 계산
-    double est_total = (current > 0) ? (elapsed_sec / current * total) : 0;
-    double est_remaining = est_total - elapsed_sec;
-
-    printf("\r    ⏳ [");
-    for (int i = 0; i < bar_width; i++) {
-        if (i < pos) printf("█");
-        else if (i == pos) printf(">");
-        else printf("·");
-    }
-    printf("] %4d/%d (%5.1f%%) | 경과: %6.1fs | 남은시간: %6.1fs ",
-           current, total, progress * 100, elapsed_sec, est_remaining);
-    fflush(stdout);
-}
-
-// 간단한 진행도 표시
-void print_simple_progress(int current, int total, const char *msg) {
-    int bar_width = 40;
-    float progress = (float)current / total;
-    int pos = bar_width * progress;
-
-    printf("\r  [");
-    for (int i = 0; i < bar_width; i++) {
-        if (i < pos) printf("█");
-        else if (i == pos) printf(">");
-        else printf("·");
-    }
-    printf("] %d/%d (%.1f%%) %s", current, total, progress * 100, msg);
-    fflush(stdout);
-}
-
 // ============================================
 // 비교 함수들
 // ============================================
@@ -117,6 +79,35 @@ int compare_grade_desc(const void *a, const void *b) {
     int sum2 = s2->korea_grade + s2->english_grade + s2->math_grade;
 
     if (sum1 != sum2) return sum2 - sum1;
+    if (s1->korea_grade != s2->korea_grade) return s2->korea_grade - s1->korea_grade;
+    if (s1->english_grade != s2->english_grade) return s2->english_grade - s1->english_grade;
+    return s2->math_grade - s1->math_grade;
+}
+
+// ✨ 새로 추가된 비교 함수들
+int compare_total_grade_asc(const void *a, const void *b) {
+    compare_count++;
+    Student *s1 = (Student*)a;
+    Student *s2 = (Student*)b;
+    int sum1 = s1->korea_grade + s1->english_grade + s1->math_grade;
+    int sum2 = s2->korea_grade + s2->english_grade + s2->math_grade;
+
+    if (sum1 != sum2) return sum1 - sum2;
+    // 동일한 경우 국어, 영어, 수학 순으로 더 큰 사람 우선 (오름차순이므로 역순)
+    if (s1->korea_grade != s2->korea_grade) return s2->korea_grade - s1->korea_grade;
+    if (s1->english_grade != s2->english_grade) return s2->english_grade - s1->english_grade;
+    return s2->math_grade - s1->math_grade;
+}
+
+int compare_total_grade_desc(const void *a, const void *b) {
+    compare_count++;
+    Student *s1 = (Student*)a;
+    Student *s2 = (Student*)b;
+    int sum1 = s1->korea_grade + s1->english_grade + s1->math_grade;
+    int sum2 = s2->korea_grade + s2->english_grade + s2->math_grade;
+
+    if (sum1 != sum2) return sum2 - sum1;
+    // 동일한 경우 국어, 영어, 수학 순으로 더 큰 사람 우선
     if (s1->korea_grade != s2->korea_grade) return s2->korea_grade - s1->korea_grade;
     if (s1->english_grade != s2->english_grade) return s2->english_grade - s1->english_grade;
     return s2->math_grade - s1->math_grade;
@@ -273,11 +264,21 @@ void merge_sort(Student *arr, int n, int (*cmp)(const void*, const void*)) {
     if (n > 0) merge_sort_helper(arr, 0, n - 1, cmp);
 }
 
-void counting_sort_radix(Student *arr, int n, int exp, int asc) {
+void tree_sort(Student *arr, int n, int (*cmp)(const void*, const void*)) {
+    merge_sort(arr, n, cmp);
+}
+
+// ============================================
+// 기수 정렬 전용 구현
+// ============================================
+
+// ID용 기수 정렬
+void counting_sort_radix_id(Student *arr, int n, int exp, int asc) {
     Student *output = malloc(n * sizeof(Student));
     if (!output) return;
 
     int count[10] = {0};
+
     for (int i = 0; i < n; i++)
         count[(arr[i].id / exp) % 10]++;
 
@@ -297,21 +298,177 @@ void counting_sort_radix(Student *arr, int n, int exp, int asc) {
     free(output);
 }
 
+// 문자열(NAME)용 기수 정렬
+void counting_sort_radix_name(Student *arr, int n, int pos, int asc) {
+    Student *output = malloc(n * sizeof(Student));
+    if (!output) return;
+
+    int count[256] = {0};
+
+    for (int i = 0; i < n; i++) {
+        unsigned char ch = (pos < strlen(arr[i].name)) ?
+                           (unsigned char)arr[i].name[pos] : 0;
+        count[ch]++;
+    }
+
+    if (asc) {
+        for (int i = 1; i < 256; i++)
+            count[i] += count[i-1];
+    } else {
+        for (int i = 254; i >= 0; i--)
+            count[i] += count[i+1];
+    }
+
+    for (int i = n - 1; i >= 0; i--) {
+        unsigned char ch = (pos < strlen(arr[i].name)) ?
+                           (unsigned char)arr[i].name[pos] : 0;
+        output[count[ch] - 1] = arr[i];
+        count[ch]--;
+    }
+
+    memcpy(arr, output, n * sizeof(Student));
+    free(output);
+}
+
+// 성별(GENDER)용 기수 정렬
+void counting_sort_radix_gender(Student *arr, int n, int asc) {
+    Student *output = malloc(n * sizeof(Student));
+    if (!output) return;
+
+    int count[256] = {0};
+
+    for (int i = 0; i < n; i++)
+        count[(unsigned char)arr[i].gender]++;
+
+    if (asc) {
+        for (int i = 1; i < 256; i++)
+            count[i] += count[i-1];
+    } else {
+        for (int i = 254; i >= 0; i--)
+            count[i] += count[i+1];
+    }
+
+    for (int i = n - 1; i >= 0; i--) {
+        unsigned char ch = (unsigned char)arr[i].gender;
+        output[count[ch] - 1] = arr[i];
+        count[ch]--;
+    }
+
+    memcpy(arr, output, n * sizeof(Student));
+    free(output);
+}
+
+// 점수(0~100)용 기수 정렬
+void counting_sort_radix_grade(Student *arr, int n, int grade_type, int asc) {
+    Student *output = malloc(n * sizeof(Student));
+    if (!output) return;
+
+    int count[301] = {0};
+
+    for (int i = 0; i < n; i++) {
+        int value;
+        switch(grade_type) {
+            case 0:
+                value = arr[i].korea_grade;
+                break;
+            case 1:
+                value = arr[i].english_grade;
+                break;
+            case 2:
+                value = arr[i].math_grade;
+                break;
+            case 3:
+                value = arr[i].korea_grade +
+                        arr[i].english_grade +
+                        arr[i].math_grade;
+                break;
+            default:
+                value = 0;
+        }
+        count[value]++;
+    }
+
+    if (asc) {
+        for (int i = 1; i < 301; i++)
+            count[i] += count[i-1];
+    } else {
+        for (int i = 299; i >= 0; i--)
+            count[i] += count[i+1];
+    }
+
+    for (int i = n - 1; i >= 0; i--) {
+        int value;
+        switch(grade_type) {
+            case 0:
+                value = arr[i].korea_grade;
+                break;
+            case 1:
+                value = arr[i].english_grade;
+                break;
+            case 2:
+                value = arr[i].math_grade;
+                break;
+            case 3:
+                value = arr[i].korea_grade +
+                        arr[i].english_grade +
+                        arr[i].math_grade;
+                break;
+            default:
+                value = 0;
+        }
+        output[count[value] - 1] = arr[i];
+        count[value]--;
+    }
+
+    memcpy(arr, output, n * sizeof(Student));
+    free(output);
+}
+
+// ============================================
+// 통합 기수 정렬 함수
+// ============================================
+
 void radix_sort(Student *arr, int n, int (*cmp)(const void*, const void*)) {
+    if (n <= 1) return;
+
     if (cmp == compare_id_asc || cmp == compare_id_desc) {
         int max = arr[0].id;
         for (int i = 1; i < n; i++)
             if (arr[i].id > max) max = arr[i].id;
 
+        int asc = (cmp == compare_id_asc);
         for (int exp = 1; max / exp > 0; exp *= 10)
-            counting_sort_radix(arr, n, exp, cmp == compare_id_asc);
-    } else {
+            counting_sort_radix_id(arr, n, exp, asc);
+    }
+    else if (cmp == compare_name_asc || cmp == compare_name_desc) {
+        int max_len = 0;
+        for (int i = 0; i < n; i++) {
+            int len = strlen(arr[i].name);
+            if (len > max_len) max_len = len;
+        }
+
+        int asc = (cmp == compare_name_asc);
+        for (int pos = max_len - 1; pos >= 0; pos--) {
+            counting_sort_radix_name(arr, n, pos, asc);
+        }
+    }
+    else if (cmp == compare_gender_asc || cmp == compare_gender_desc) {
+        int asc = (cmp == compare_gender_asc);
+        counting_sort_radix_gender(arr, n, asc);
+    }
+    else if (cmp == compare_grade_asc || cmp == compare_grade_desc) {
+        int asc = (cmp == compare_grade_asc);
+
+        counting_sort_radix_grade(arr, n, 2, asc);
+        counting_sort_radix_grade(arr, n, 1, asc);
+        counting_sort_radix_grade(arr, n, 0, asc);
+        counting_sort_radix_grade(arr, n, 3, asc);
+    }
+    // ✨ 새로운 total_grade 비교 함수를 위한 기수 정렬
+    else if (cmp == compare_total_grade_asc || cmp == compare_total_grade_desc) {
+        // total_grade는 복잡한 타이브레이크 룰이 있으므로 비교 기반 정렬 사용
         merge_sort(arr, n, cmp);
     }
-}
-
-void tree_sort(Student *arr, int n, int (*cmp)(const void*, const void*)) {
-    merge_sort(arr, n, cmp);
 }
 
 // ============================================
@@ -321,72 +478,54 @@ void tree_sort(Student *arr, int n, int (*cmp)(const void*, const void*)) {
 int load_data(const char *filename) {
     FILE *fp = fopen(filename, "r");
     if (!fp) {
-        printf("❌ 파일 열기 실패: %s\n", filename);
-        printf("   현재 디렉토리에 파일이 있는지 확인하세요.\n");
+        printf("File open failed: %s\n", filename);
+        printf("Check if the file exists in current directory.\n");
         return 0;
     }
 
     char line[2048];
 
-    // 헤더 읽기
     if (!fgets(line, sizeof(line), fp)) {
-        printf("❌ 파일이 비어있습니다.\n");
+        printf("File is empty.\n");
         fclose(fp);
         return 0;
     }
 
-    printf("✅ 파일 열기 성공\n");
-    printf("   헤더: %s", line);
+    printf("File opened successfully\n");
+    printf("Header: %s", line);
 
-    // 데이터 개수 세기
-    printf("⏳ 데이터 개수 확인 중...\n");
     data_count = 0;
     while (fgets(line, sizeof(line), fp)) {
         if (strlen(line) > 5) data_count++;
-
-        if (data_count % 1000 == 0) {
-            print_simple_progress(data_count, data_count, "");
-        }
     }
 
-    printf("\r   총 %d줄 발견                    \n", data_count);
 
     if (data_count == 0) {
-        printf("❌ 데이터가 없습니다.\n");
+        printf("No data found.\n");
         fclose(fp);
         return 0;
     }
 
-    // 메모리 할당
-    printf("⏳ 메모리 할당 중... (%zu bytes)\n", data_count * sizeof(Student));
     original_data = (Student*)calloc(data_count, sizeof(Student));
     if (!original_data) {
-        printf("❌ 메모리 할당 실패\n");
+        printf("Memory allocation failed\n");
         fclose(fp);
         return 0;
     }
 
-    printf("✅ 메모리 할당 성공\n");
 
-    // 파일 처음으로
     rewind(fp);
-    fgets(line, sizeof(line), fp); // 헤더 스킵
+    fgets(line, sizeof(line), fp);
 
-    // 데이터 읽기
-    printf("⏳ 데이터 읽기 중...\n");
     int idx = 0;
     int line_num = 1;
 
     while (fgets(line, sizeof(line), fp) && idx < data_count) {
         line_num++;
-
-        // 개행 제거
         line[strcspn(line, "\r\n")] = 0;
 
-        // 빈 줄 스킵
         if (strlen(line) < 5) continue;
 
-        // sscanf로 안전하게 파싱
         int read = sscanf(line, "%d,%49[^,],%c,%d,%d,%d",
                           &original_data[idx].id,
                           original_data[idx].name,
@@ -397,49 +536,23 @@ int load_data(const char *filename) {
 
         if (read == 6) {
             idx++;
-            if (idx % 500 == 0) {
-                print_simple_progress(idx, data_count, "읽는 중...");
-            }
         }
     }
 
     fclose(fp);
     data_count = idx;
 
-    printf("\r✅ 데이터 로딩 완료: %d개                              \n\n", data_count);
-
-    // 샘플 데이터 출력
-    if (data_count > 0) {
-        printf("📋 샘플 데이터 (첫 3개):\n");
-        for (int i = 0; i < 3 && i < data_count; i++) {
-            printf("   [%d] ID:%d, Name:%s, Gender:%c, 국:%d, 영:%d, 수:%d\n",
-                   i+1, original_data[i].id, original_data[i].name,
-                   original_data[i].gender, original_data[i].korea_grade,
-                   original_data[i].english_grade, original_data[i].math_grade);
-        }
-        printf("\n");
-    }
-
-    if (data_count > 5000) {
-        printf("⚠️  데이터 %d개 - 버블/선택 정렬은 시간이 오래 걸립니다.\n\n", data_count);
-    }
-
     return 1;
 }
 
 int check_duplicates() {
-    printf("⏳ 중복 검사 중...\n");
 
     Student *temp = malloc(data_count * sizeof(Student));
     if (!temp) return 0;
 
     memcpy(temp, original_data, data_count * sizeof(Student));
 
-    // 간단한 버블 정렬로 중복 검사
     for (int i = 0; i < data_count - 1; i++) {
-        if (i % 100 == 0) {
-            print_simple_progress(i, data_count, "정렬 중...");
-        }
         for (int j = 0; j < data_count - i - 1; j++) {
             if (temp[j].id > temp[j + 1].id) {
                 Student t = temp[j];
@@ -458,7 +571,6 @@ int check_duplicates() {
     }
 
     free(temp);
-    printf("\r%s                              \n\n", has_dup ? "⚠️  중복 있음" : "✅ 중복 없음");
     return has_dup;
 }
 
@@ -475,12 +587,11 @@ SortStats run_sort_test(void (*sort_func)(Student*, int, int (*)(const void*, co
     long long total = 0;
 
     clock_t start = clock();
-    clock_t last_update = start;
 
     for (int i = 0; i < iterations; i++) {
         Student *temp = malloc(data_count * sizeof(Student));
         if (!temp) {
-            printf("\n❌ 메모리 할당 실패 (iter %d)\n", i);
+            printf("\nMemory allocation failed (iter %d)\n", i);
             break;
         }
 
@@ -491,22 +602,10 @@ SortStats run_sort_test(void (*sort_func)(Student*, int, int (*)(const void*, co
 
         total += compare_count;
         free(temp);
-
-        // 진행도 업데이트 (1초마다 또는 10회마다)
-        clock_t now = clock();
-        double elapsed = (double)(now - start) / CLOCKS_PER_SEC;
-
-        if ((now - last_update) / CLOCKS_PER_SEC >= 1.0 ||
-            (i + 1) % 10 == 0 ||
-            i == iterations - 1) {
-            print_detailed_progress(i + 1, iterations, sort_name, criteria_name, elapsed);
-            last_update = now;
-        }
     }
 
     double total_elapsed = (double)(clock() - start) / CLOCKS_PER_SEC;
-    printf(" ✓\n");
-    printf("       └─ 완료! 총 소요시간: %.2fs (%.2f분)\n", total_elapsed, total_elapsed / 60.0);
+    printf("    전체 시간: %.2fs \n", total_elapsed);
 
     stats.comparisons = total / iterations;
     stats.memory_used = data_count * sizeof(Student);
@@ -518,11 +617,6 @@ SortStats run_sort_test(void (*sort_func)(Student*, int, int (*)(const void*, co
 // ============================================
 
 int main() {
-    printf("\n");
-    printf("╔════════════════════════════════════════════════════╗\n");
-    printf("║      🎓 정렬 알고리즘 성능 비교 프로그램 v2.0      ║\n");
-    printf("╚════════════════════════════════════════════════════╝\n");
-    printf("\n");
 
     if (!load_data("dataset_id_ascending.csv")) {
         return 1;
@@ -532,12 +626,7 @@ int main() {
 
     const int ITER = 10;
 
-    printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
-    printf("⚙️  설정\n");
-    printf("   • 데이터 개수: %d개\n", data_count);
-    printf("   • 반복 횟수: %d회 (각 정렬마다)\n", ITER);
-    printf("   • 결과: 1000회 평균값 출력\n");
-    printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n");
+    printf("  * Data count: %d\n", data_count);
 
     typedef struct {
         void (*func)(Student*, int, int (*)(const void*, const void*));
@@ -548,7 +637,7 @@ int main() {
     Sort sorts[] = {
         {bubble_sort, "버블 정렬", 0},
         {selection_sort, "선택 정렬", 0},
-        {insertion_sort, "삽입 정렬", 0},
+        {insertion_sort, "삽입", 0},
         {shell_sort, "셸 정렬", 0},
         {quick_sort, "퀵 정렬", 0},
         {heap_sort, "힙 정렬", 1},
@@ -563,6 +652,7 @@ int main() {
         int stable;
     } Criteria;
 
+    // ✨ 새로운 정렬 기준 추가
     Criteria crit[] = {
         {compare_id_asc, "ID 오름차순", 0},
         {compare_id_desc, "ID 내림차순", 0},
@@ -570,63 +660,57 @@ int main() {
         {compare_name_desc, "NAME 내림차순", 0},
         {compare_gender_asc, "GENDER 오름차순", 1},
         {compare_gender_desc, "GENDER 내림차순", 1},
-        {compare_grade_asc, "성적 오름차순", 0},
-        {compare_grade_desc, "성적 내림차순", 0}
+        {compare_grade_asc, "GRADE 오름차순", 0},
+        {compare_grade_desc, "GRADE 내림차순", 0},
+        {compare_total_grade_asc, "TOTAL GRADE 오름차순 (동점시 국영수 순)", 0},
+        {compare_total_grade_desc, "TOTAL GRADE 내림차순 (동점시 국영수 순)", 0}
     };
 
-    // 전체 작업 수 계산
     int total_tasks = 0;
-    for (int c = 0; c < 8; c++) {
+    for (int c = 0; c < 10; c++) {  // ✨ 8에서 10으로 변경
         for (int s = 0; s < 9; s++) {
             if (has_dup && sorts[s].skip_dup) continue;
-            if (crit[c].stable && s != 0 && s != 2 && s != 6) continue;
+            if (crit[c].stable && s != 0 && s != 2 && s != 6 && s != 7) continue;
             total_tasks++;
         }
     }
 
-    printf("╔════════════════════════════════════════════════════╗\n");
-    printf("║         📊 정렬 시작 (총 %d개 작업)                 ║\n", total_tasks);
-    printf("╚════════════════════════════════════════════════════╝\n\n");
-
     int completed = 0;
     clock_t program_start = clock();
 
-    for (int c = 0; c < 8; c++) {
-        printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
-        printf("📌 정렬 기준: %s\n", crit[c].name);
-        printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n");
+    for (int c = 0; c < 10; c++) {  // ✨ 8에서 10으로 변경
+        printf("----------------------------------------------------\n");
+        printf("    정렬  기준: %s\n", crit[c].name);
+        printf("----------------------------------------------------\n\n");
 
         for (int s = 0; s < 9; s++) {
             if (has_dup && sorts[s].skip_dup) {
-                printf("  ⊗ %s - SKIPPED (중복 데이터)\n\n", sorts[s].name);
+                printf("  [X] %s - SKIPPED (Duplicate data)\n\n", sorts[s].name);
                 continue;
             }
 
-            if (crit[c].stable && s != 0 && s != 2 && s != 6) {
-                printf("  ⊗ %s - SKIPPED (Stable 정렬 아님)\n\n", sorts[s].name);
+            if (crit[c].stable && s != 0 && s != 2 && s != 6 && s != 7) {
+                printf("  [X] %s - SKIPPED (Not stable sort)\n\n", sorts[s].name);
                 continue;
             }
 
             completed++;
-            printf("  🔹 [작업 %d/%d] %s - %s\n", completed, total_tasks, sorts[s].name, crit[c].name);
-            printf("     1000회 반복 평균 측정 중...\n");
+            printf("  [작업 %d/%d] %s - %s\n", completed, total_tasks, sorts[s].name, crit[c].name);
 
             SortStats st = run_sort_test(sorts[s].func, crit[c].func,
                                         sorts[s].name, crit[c].name, ITER);
-            printf("       ├─ 평균 비교 횟수: %lld회\n", st.comparisons);
-            printf("       └─ 메모리 사용량: %zu bytes\n\n", st.memory_used);
+            printf("    평균 비교 횟수: %lld\n", st.comparisons);
+            printf("    메모리 사용량: %zu bytes\n\n", st.memory_used);
         }
     }
 
     double total_time = (double)(clock() - program_start) / CLOCKS_PER_SEC;
 
     printf("\n");
-    printf("╔════════════════════════════════════════════════════╗\n");
-    printf("║              ✅ 모든 정렬 완료!                     ║\n");
-    printf("╚════════════════════════════════════════════════════╝\n");
+    printf("====================================================\n");
     printf("\n");
-    printf("⏱️  전체 소요 시간: %.2f초 (%.2f분)\n", total_time, total_time / 60.0);
-    printf("📊 총 %d개 작업 완료\n\n", completed);
+    printf("Total execution time: %.2f seconds (%.2f minutes)\n", total_time, total_time / 60.0);
+    printf("Total tasks completed: %d\n\n", completed);
 
     free(original_data);
     return 0;
